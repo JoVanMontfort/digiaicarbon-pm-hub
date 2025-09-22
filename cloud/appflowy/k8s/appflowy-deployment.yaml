@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appflowy
+  namespace: appflowy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appflowy
+  template:
+    metadata:
+      labels:
+        app: appflowy
+    spec:
+      containers:
+        - name: appflowy
+          image: appflowy/appflowy-server:latest # Check for the official image tag
+          ports:
+            - containerPort: 8000 # Verify the correct port from AppFlowy's docs
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: appflowy-db-secret
+                  key: database-url
+          volumeMounts:
+            - name: storage
+              mountPath: /path/to/appflowy/data # Check correct path in docs
+      volumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: appflowy-storage
