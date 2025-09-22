@@ -2,21 +2,25 @@
 
 > **Real-Time Good Data for the Global Digital Economy**
 
-This repository serves as the central hub for product strategy, planning, and execution for [www.digiaicarbon.com](https://www.digiaicarbon.com). It bridges our two founding teams and aligns product vision with technical architecture.
+This repository serves as the central hub for product strategy, planning, and execution
+for [www.digiaicarbon.com](https://www.digiaicarbon.com). It bridges our two founding teams and aligns product vision
+with technical architecture.
 
 ## 🎯 Product Vision
 
-**Pioneering Real-Time Good Data as the foundational infrastructure for the evolving digital economy**, spanning traditional finance transformation and new finance (RWA, stablecoins, Web3).
+**Pioneering Real-Time Good Data as the foundational infrastructure for the evolving digital economy**, spanning
+traditional finance transformation and new finance (RWA, stablecoins, Web3).
 
-*Built on the architectural foundation of [Lexidatum](https://www.lexidatum.com) and powered by AI executives from Digi Building Block Limited.*
+*Built on the architectural foundation of [Lexidatum](https://www.lexidatum.com) and powered by AI executives from Digi
+Building Block Limited.*
 
 ## 👥 Team Structure
 
-| Role | Team | Focus Area |
-|------|------|------------|
-| **Product Leadership** | Founding Team 2 (EU) | Product strategy, roadmap, user experience |
+| Role                       | Team                    | Focus Area                                           |
+|----------------------------|-------------------------|------------------------------------------------------|
+| **Product Leadership**     | Founding Team 2 (EU)    | Product strategy, roadmap, user experience           |
 | **Technical Architecture** | Founding Team 1 (HK/SG) | System design, AI infrastructure, global scalability |
-| **AI Development** | Founding Team 2 (EU) | Feature implementation, AI integration |
+| **AI Development**         | Founding Team 2 (EU)    | Feature implementation, AI integration               |
 
 ## 📁 Repository Structure
 
@@ -36,11 +40,13 @@ digiaicarbon-product/
 ## 🚀 Current Focus
 
 ### Version 1: Platform Rebuild
+
 - **Objective**: Foundation for real-time carbon data management
 - **Timeline**: [Add timeline]
 - **Key Features**: [Add key features]
 
 ### Version 2: AI Development
+
 - **Objective**: Integration of AI executives (CEO, CFO, COO) and advanced analytics
 - **Dependencies**: Lexidatum architecture, Digi Building Block AI models
 
@@ -54,16 +60,19 @@ digiaicarbon-product/
 ## 🤝 Collaboration Guidelines
 
 ### For Product Team (Founding Team 2)
+
 - Update feature specifications in `/features/`
 - Maintain roadmap alignment in `/roadmap/`
 - Document user research insights in `/user-research/`
 
 ### For Architecture Team (Founding Team 1)
+
 - Review technical feasibility of features
 - Provide architectural guidance in `/integrations/`
 - Flag dependencies and constraints early
 
 ### Cross-Team Workflow
+
 1. **Feature Proposal** → Create issue using [PRD Template](./templates/prd-template.md)
 2. **Architecture Review** → Tag `@architect-team` for technical assessment
 3. **Implementation Planning** → Move to appropriate milestone (V1/V2)
@@ -71,11 +80,11 @@ digiaicarbon-product/
 
 ## 📞 Contact
 
-| Role | Contact          | Responsibilities |
-|------|------------------|------------------|
-| Product Manager | Jo Van Montfort  | Overall product strategy & coordination |
+| Role                | Contact          | Responsibilities                        |
+|---------------------|------------------|-----------------------------------------|
+| Product Manager     | Jo Van Montfort  | Overall product strategy & coordination |
 | Technical Architect | [Architect Name] | System architecture & AI infrastructure |
-| Development Lead | [Dev Lead Name]  | Feature implementation & delivery |
+| Development Lead    | [Dev Lead Name]  | Feature implementation & delivery       |
 
 ---
 
