@@ -15,19 +15,25 @@ spec:
     spec:
       containers:
         - name: appflowy
-          image: appflowy/appflowy-server:latest # Check for the official image tag
-          ports:
-            - containerPort: 8000 # Verify the correct port from AppFlowy's docs
+          image: appflowy/appflowy:latest  # or your preferred version
           env:
             - name: DATABASE_URL
-              valueFrom:
-                secretKeyRef:
-                  name: appflowy-db-secret
-                  key: database-url
+              value: "sqlite:///data/appflowy/appflowy.db"
+            - name: RUST_LOG
+              value: "info"
+          ports:
+            - containerPort: 80
           volumeMounts:
-            - name: storage
-              mountPath: /path/to/appflowy/data # Check correct path in docs
+            - name: appflowy-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
       volumes:
-        - name: storage
+        - name: appflowy-data
           persistentVolumeClaim:
-            claimName: appflowy-storage
+            claimName: appflowy-data-pvc

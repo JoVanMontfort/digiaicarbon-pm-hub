@@ -4,21 +4,16 @@ metadata:
   name: appflowy-ingress
   namespace: appflowy
   annotations:
-    cert-manager.io/cluster-issuer: "letsencrypt-production" # If using cert-manager
+    kubernetes.io/ingress.class: nginx
 spec:
-  ingressClassName: nginx
   rules:
-    - host: "flowy.yourdomain.com" # Your desired subdomain
+    - host: appflowy.yourdomain.com  # Change to your domain
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: appflowy-service # Name of your service
+                name: appflowy-service
                 port:
-                  number: 8000
-  tls:
-    - hosts:
-        - flowy.yourdomain.com
-      secretName: appflowy-tls-secret # cert-manager will create this
+                  number: 80
