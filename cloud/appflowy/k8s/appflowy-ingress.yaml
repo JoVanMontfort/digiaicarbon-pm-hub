@@ -5,9 +5,10 @@ metadata:
   namespace: appflowy
   annotations:
     kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod  # If using cert-manager
 spec:
   rules:
-    - host: appflowy.yourdomain.com  # Change to your domain
+    - host: appflowy.triggeriq.eu  # Subdomain
       http:
         paths:
           - path: /
@@ -17,3 +18,7 @@ spec:
                 name: appflowy-service
                 port:
                   number: 80
+  tls:
+    - hosts:
+        - appflowy.triggeriq.eu
+      secretName: appflowy-tls-secret
