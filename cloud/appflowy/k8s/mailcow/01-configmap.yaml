@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mailcow-config
+  namespace: mailcow
+data:
+  mailcow.conf: |
+    # Mailcow configuration
+    SKIP_CLAMD=y
+    SKIP_SOLR=y
+    ADDITIONAL_SAN=mail.damno-solutions.be,autodiscover.damno-solutions.be,autoconfig.damno-solutions.be
+    TZ=Europe/Brussels

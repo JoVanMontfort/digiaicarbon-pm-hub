@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mailcow
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mailcow-data
+  namespace: mailcow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 8Gi
+  storageClassName: scaleway-ssd
