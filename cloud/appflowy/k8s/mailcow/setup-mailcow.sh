@@ -4,13 +4,24 @@ set -e
 
 echo "🚀 Deploying Mailcow on Kubernetes..."
 
-# Create namespace
+# Step 1: Check available storage classes
+echo "📦 Checking available storage classes..."
+kubectl get storageclass
+
+# Step 2: Create namespace and PVCs
+echo "📁 Creating namespace and persistent volumes..."
 kubectl apply -f 00-namespace.yaml
 
-# Generate secrets
+# Wait for PVCs to be bound
+echo "⏳ Waiting for PVCs to be bound..."
+sleep 10
+kubectl get pvc -n mailcow
+
+# Step 3: Generate secrets
+echo "🔐 Generating secrets..."
 ./generate-secrets.sh
 
-# Apply configurations
+# Step 4: Apply configurations
 kubectl apply -f 01-configmap.yaml
 kubectl apply -f 02-postgresql.yaml
 
@@ -18,19 +29,5 @@ kubectl apply -f 02-postgresql.yaml
 echo "⏳ Waiting for PostgreSQL to be ready..."
 kubectl wait --for=condition=ready pod -l app=postgresql -n mailcow --timeout=300s
 
-# Deploy Mailcow core
-kubectl apply -f 03-mailcow-core.yaml
-
-# Wait for pods to be ready
-echo "⏳ Waiting for Mailcow pods to be ready..."
-kubectl wait --for=condition=ready pod -l app=mailcow -n mailcow --timeout=300s
-
-# Expose services
-kubectl apply -f 04-services.yaml
-
-# Get external IPs
-echo "📊 Getting service information..."
-kubectl get svc -n mailcow
-
-echo "✅ Mailcow deployment completed!"
-echo "📧 Update your DNS records to point to the external IPs above"
+echo "✅ PostgreSQL is now running!"
+kubectl get pods -n mailcow

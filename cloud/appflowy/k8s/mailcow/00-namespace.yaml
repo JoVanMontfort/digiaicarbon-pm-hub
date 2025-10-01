@@ -3,6 +3,21 @@ kind: Namespace
 metadata:
   name: mailcow
 ---
+# PostgreSQL PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-pvc
+  namespace: mailcow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: scw-bssd  # Scaleway Block SSD Storage
+---
+# Mail data PVC
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -13,5 +28,5 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 8Gi
-  storageClassName: scaleway-ssd
+      storage: 5Gi
+  storageClassName: scw-bssd
