@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-front
+  namespace: mailcow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-front
+  template:
+    metadata:
+      labels:
+        app: mailu-front
+    spec:
+      containers:
+        - name: front
+          image: mailu/nginx:2.0
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+            - containerPort: 25
+            - containerPort: 587
+            - containerPort: 465
+            - containerPort: 993
+            - containerPort: 995
+          envFrom:
+            - configMapRef:
+                name: mailu-config
+          volumeMounts:
+            - name: secrets
+              mountPath: /run/secrets
+              readOnly: true
+            - name: certs
+              mountPath: /certs
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+      volumes:
+        - name: secrets
+          secret:
+            secretName: mailu-secrets
+        - name: certs
+          emptyDir: { }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-admin
+  namespace: mailcow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-admin
+  template:
+    metadata:
+      labels:
+        app: mailu-admin
+    spec:
+      containers:
+        - name: admin
+          image: mailu/admin:2.0
+          ports:
+            - containerPort: 80
+          envFrom:
+            - configMapRef:
+                name: mailu-config
+          volumeMounts:
+            - name: secrets
+              mountPath: /run/secrets
+              readOnly: true
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+      volumes:
+        - name: secrets
+          secret:
+            secretName: mailu-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-smtp
+  namespace: mailcow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-smtp
+  template:
+    metadata:
+      labels:
+        app: mailu-smtp
+    spec:
+      containers:
+        - name: smtp
+          image: mailu/postfix:2.0
+          ports:
+            - containerPort: 25
+            - containerPort: 587
+            - containerPort: 465
+          envFrom:
+            - configMapRef:
+                name: mailu-config
+          volumeMounts:
+            - name: secrets
+              mountPath: /run/secrets
+              readOnly: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+      volumes:
+        - name: secrets
+          secret:
+            secretName: mailu-secrets
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mailu-imap
+  namespace: mailcow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mailu-imap
+  template:
+    metadata:
+      labels:
+        app: mailu-imap
+    spec:
+      containers:
+        - name: imap
+          image: mailu/dovecot:2.0
+          ports:
+            - containerPort: 993
+            - containerPort: 995
+            - containerPort: 143
+          envFrom:
+            - configMapRef:
+                name: mailu-config
+          volumeMounts:
+            - name: secrets
+              mountPath: /run/secrets
+              readOnly: true
+            - name: mail-data
+              mountPath: /mail
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+      volumes:
+        - name: secrets
+          secret:
+            secretName: mailu-secrets
+        - name: mail-data
+          persistentVolumeClaim:
+            claimName: mailcow-data
