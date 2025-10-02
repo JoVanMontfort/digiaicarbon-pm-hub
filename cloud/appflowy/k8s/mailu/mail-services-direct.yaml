@@ -1,0 +1,47 @@
+# Directe service voor Postfix
+apiVersion: v1
+kind: Service
+metadata:
+  name: postfix-direct
+  namespace: mailcow
+spec:
+  type: LoadBalancer
+  ports:
+    - name: smtp
+      port: 25
+      targetPort: 25
+      protocol: TCP
+    - name: submission
+      port: 587
+      targetPort: 587
+      protocol: TCP
+    - name: smtps
+      port: 465
+      targetPort: 465
+      protocol: TCP
+  selector:
+    app: postfix-mail
+---
+# Directe service voor Dovecot
+apiVersion: v1
+kind: Service
+metadata:
+  name: dovecot-direct
+  namespace: mailcow
+spec:
+  type: LoadBalancer
+  ports:
+    - name: imaps
+      port: 993
+      targetPort: 993
+      protocol: TCP
+    - name: pop3s
+      port: 995
+      targetPort: 995
+      protocol: TCP
+    - name: imap
+      port: 143
+      targetPort: 143
+      protocol: TCP
+  selector:
+    app: dovecot-mail

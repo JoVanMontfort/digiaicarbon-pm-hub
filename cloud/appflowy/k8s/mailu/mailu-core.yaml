@@ -1,162 +1,65 @@
+# Eenvoudige Postfix container
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mailu-front
+  name: postfix-mail
   namespace: mailcow
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mailu-front
+      app: postfix-mail
   template:
     metadata:
       labels:
-        app: mailu-front
+        app: postfix-mail
     spec:
       containers:
-        - name: front
-          image: mailu/nginx:2.0
-          ports:
-            - containerPort: 80
-            - containerPort: 443
-            - containerPort: 25
-            - containerPort: 587
-            - containerPort: 465
-            - containerPort: 993
-            - containerPort: 995
-          envFrom:
-            - configMapRef:
-                name: mailu-config
-          volumeMounts:
-            - name: secrets
-              mountPath: /run/secrets
-              readOnly: true
-            - name: certs
-              mountPath: /certs
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "100m"
-      volumes:
-        - name: secrets
-          secret:
-            secretName: mailu-secrets
-        - name: certs
-          emptyDir: { }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mailu-admin
-  namespace: mailcow
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mailu-admin
-  template:
-    metadata:
-      labels:
-        app: mailu-admin
-    spec:
-      containers:
-        - name: admin
-          image: mailu/admin:2.0
-          ports:
-            - containerPort: 80
-          envFrom:
-            - configMapRef:
-                name: mailu-config
-          volumeMounts:
-            - name: secrets
-              mountPath: /run/secrets
-              readOnly: true
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "200m"
-      volumes:
-        - name: secrets
-          secret:
-            secretName: mailu-secrets
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: mailu-smtp
-  namespace: mailcow
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: mailu-smtp
-  template:
-    metadata:
-      labels:
-        app: mailu-smtp
-    spec:
-      containers:
-        - name: smtp
-          image: mailu/postfix:2.0
+        - name: postfix
+          image: boky/postfix:latest  # Goed onderhouden Postfix image
+          env:
+            - name: ALLOWED_SENDER_DOMAINS
+              value: damno-solutions.be
+            - name: RELAYHOST
+              value: "[smtp.gmail.com]:587"
           ports:
             - containerPort: 25
             - containerPort: 587
-            - containerPort: 465
-          envFrom:
-            - configMapRef:
-                name: mailu-config
-          volumeMounts:
-            - name: secrets
-              mountPath: /run/secrets
-              readOnly: true
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "100m"
-      volumes:
-        - name: secrets
-          secret:
-            secretName: mailu-secrets
+              memory: "64Mi"
+              cpu: "50m"
 ---
+# Eenvoudige Dovecot container
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mailu-imap
+  name: dovecot-mail
   namespace: mailcow
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mailu-imap
+      app: dovecot-mail
   template:
     metadata:
       labels:
-        app: mailu-imap
+        app: dovecot-mail
     spec:
       containers:
-        - name: imap
-          image: mailu/dovecot:2.0
+        - name: dovecot
+          image: dovecot/dovecot:2.3.20  # Specifieke werkende versie
           ports:
             - containerPort: 993
             - containerPort: 995
-            - containerPort: 143
-          envFrom:
-            - configMapRef:
-                name: mailu-config
           volumeMounts:
-            - name: secrets
-              mountPath: /run/secrets
-              readOnly: true
             - name: mail-data
-              mountPath: /mail
+              mountPath: /var/mail
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "200m"
+              memory: "128Mi"
+              cpu: "100m"
       volumes:
-        - name: secrets
-          secret:
-            secretName: mailu-secrets
         - name: mail-data
           persistentVolumeClaim:
             claimName: mailcow-data
