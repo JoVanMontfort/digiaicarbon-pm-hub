@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postfix-virtual-config
+  namespace: mailcow
+data:
+  virtual: |
+    test@damno-solutions.be test/
+    admin@damno-solutions.be admin/
+    jo.vanmontfort@damno-solutions.be jo/
+    amanda.gaviriagoyes@damno-solutions.be amanda/
+  main.cf.patch: |
+    mydestination = localhost.localdomain, localhost, damno-solutions.be
+    virtual_mailbox_domains = damno-solutions.be
+    virtual_mailbox_base = /var/mail
+    virtual_mailbox_maps = hash:/etc/postfix/virtual
+    virtual_uid_maps = static:5000
+    virtual_gid_maps = static:5000
+    virtual_minimum_uid = 5000
+    virtual_transport = virtual
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postfix-mail
+  namespace: mailcow
+spec:
+  replicas: 1
+  selector: # 👈 MISSING SELECTOR ADDED
+    matchLabels:
+      app: postfix-mail
+  template:
+    metadata:
+      labels: # 👈 MISSING LABELS ADDED
+        app: postfix-mail
+    spec:
+      containers:
+        - name: postfix
+          image: boky/postfix:latest
+          env:
+            - name: ALLOWED_SENDER_DOMAINS
+              value: damno-solutions.be
+            - name: POSTFIX_myhostname
+              value: mail.damno-solutions.be
+            - name: POSTFIX_mynetworks
+              value: 0.0.0.0/0
+            - name: POSTFIX_inet_interfaces
+              value: all
+            - name: RELAYHOST
+              value: ""
+          ports:
+            - containerPort: 25
+            - containerPort: 587
+            - containerPort: 465
+          volumeMounts:
+            - name: virtual-config
+              mountPath: /etc/postfix/virtual
+              subPath: virtual
+            - name: mail-data
+              mountPath: /var/mail
+            - name: startup-scripts
+              mountPath: /docker-entrypoint.d
+      volumes:
+        - name: virtual-config
+          configMap:
+            name: postfix-virtual-config
+        - name: mail-data
+          persistentVolumeClaim:
+            claimName: mailcow-data
+        - name: startup-scripts
+          configMap:
+            name: postfix-startup-scripts
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postfix-startup-scripts
+  namespace: mailcow
+data:
+  10-setup-virtual.sh: |
+    #!/bin/bash
+    echo "Setting up virtual mailboxes..."
+    
+    # Create mail directories
+    mkdir -p /var/mail/test /var/mail/admin /var/mail/jo /var/mail/amanda
+    chown -R 5000:5000 /var/mail
+    
+    # Compile virtual map
+    postmap /etc/postfix/virtual
+    
+    # Apply main.cf patches
+    while IFS= read -r line; do
+      if [ -n "$line" ]; then
+        postconf -e "$line"
+      fi
+    done < <(grep -v '^#' /etc/postfix/main.cf.patch 2>/dev/null || echo "")
+    
+    echo "Virtual mailbox setup completed!"
