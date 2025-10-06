@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: appflowy-ingress
+  namespace: appflowy
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod  # If using cert-manager
+spec:
+  rules:
+    - host: appflowy.triggeriq.eu  # Subdomain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: appflowy-service
+                port:
+                  number: 80
+  tls:
+    - hosts:
+        - appflowy.triggeriq.eu
+      secretName: appflowy-tls-secret

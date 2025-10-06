@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: appflowy
+  namespace: appflowy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: appflowy
+  template:
+    metadata:
+      labels:
+        app: appflowy
+    spec:
+      containers:
+        - name: appflowy
+          image: appflowy/appflowy:latest  # or your preferred version
+          env:
+            - name: DATABASE_URL
+              value: "sqlite:///data/appflowy/appflowy.db"
+            - name: RUST_LOG
+              value: "info"
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: appflowy-data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: appflowy-data
+          persistentVolumeClaim:
+            claimName: appflowy-data-pvc

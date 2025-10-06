@@ -1,0 +1,65 @@
+# Eenvoudige Postfix container
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postfix-mail
+  namespace: mailcow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postfix-mail
+  template:
+    metadata:
+      labels:
+        app: postfix-mail
+    spec:
+      containers:
+        - name: postfix
+          image: boky/postfix:latest  # Goed onderhouden Postfix image
+          env:
+            - name: ALLOWED_SENDER_DOMAINS
+              value: damno-solutions.be
+            - name: RELAYHOST
+              value: "[smtp.gmail.com]:587"
+          ports:
+            - containerPort: 25
+            - containerPort: 587
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+---
+# Eenvoudige Dovecot container
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dovecot-mail
+  namespace: mailcow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dovecot-mail
+  template:
+    metadata:
+      labels:
+        app: dovecot-mail
+    spec:
+      containers:
+        - name: dovecot
+          image: dovecot/dovecot:2.3.20  # Specifieke werkende versie
+          ports:
+            - containerPort: 993
+            - containerPort: 995
+          volumeMounts:
+            - name: mail-data
+              mountPath: /var/mail
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+      volumes:
+        - name: mail-data
+          persistentVolumeClaim:
+            claimName: mailcow-data
