@@ -11,8 +11,8 @@ postconf -n | grep -E '(mydestination|virtual_mailbox_domains|virtual_alias_maps
 
 echo ''
 echo '2. Configuring domains to accept mail for...'
-postconf -e 'mydestination = \$myhostname, localhost.\$mydomain, localhost, \$mydomain, triggeriq.eu, damno-solutions.be'
-postconf -e 'virtual_mailbox_domains = triggeriq.eu, damno-solutions.be'
+postconf -e 'mydestination = \$myhostname, localhost.\$mydomain, localhost, \$mydomain, triggeriq.eu'
+postconf -e 'virtual_mailbox_domains = triggeriq.eu'
 postconf -e 'virtual_mailbox_base = /var/mail'
 postconf -e 'virtual_mailbox_maps = hash:/etc/postfix/virtual_mailbox'
 postconf -e 'virtual_uid_maps = static:5000'
