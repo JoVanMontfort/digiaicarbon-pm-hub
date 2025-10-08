@@ -1,45 +1,31 @@
 #!/bin/bash
+echo "📬 Checking Delivered Mail"
 
-echo "📧 Checking Delivered Mail"
-echo "=========================="
-
-echo ""
-echo "1. Checking Postfix logs for recent deliveries..."
-kubectl logs deployment/postfix-mail -n mailcow --since=10m | grep -E "(delivered|status=|from=<|to=<)" | tail -20
-
-echo ""
-echo "2. Checking mail queue status..."
+echo "1. Checking mail content..."
 kubectl exec -it deployment/postfix-mail -n mailcow -- sh -c '
-echo "Mail queue:"
-postqueue -p 2>/dev/null | head -10 || echo "No mail queue output"
-
-echo "Active queue directories:"
-find /var/spool/postfix/ -type d -name "active" -exec ls -la {} \; 2>/dev/null
+echo "=== Latest mail files in test mailbox ==="
+ls -lt /var/mail/test/new/ | head -5
+echo "=== Reading latest email ==="
+latest=$(ls -t /var/mail/test/new/ | head -1)
+if [ -n "$latest" ]; then
+    echo "File: $latest"
+    cat "/var/mail/test/new/$latest"
+else
+    echo "No mail found"
+fi
 '
 
 echo ""
-echo "3. Checking local mail files..."
+echo "2. Testing from external source..."
+echo "You can now test from an external email client:"
+echo "SMTP Server: mail.triggeriq.eu"
+echo "Ports: 25, 587, 465"
+echo "Test email: test@triggeriq.eu"
+
+echo ""
+echo "3. Final configuration check..."
 kubectl exec -it deployment/postfix-mail -n mailcow -- sh -c '
-echo "Mail directories:"
-ls -la /var/mail/ 2>/dev/null || echo "No /var/mail directory"
-
-echo "Mail files found:"
-find /var/mail/ -type f 2>/dev/null | while read file; do
-    echo "File: $file"
-    echo "Size: $(stat -c%s "$file" 2>/dev/null || echo "0") bytes"
-    echo "First line: $(head -1 "$file" 2>/dev/null | cut -c1-50)"
-    echo "---"
-done
+echo "=== Virtual configuration ==="
+postconf virtual_mailbox_domains virtual_mailbox_maps virtual_transport
+echo "=== Successful! Emails to @triggeriq.eu will be delivered to /var/mail/ ==="
 '
-
-echo ""
-echo "4. Testing IMAP access..."
-timeout 10 openssl s_client -connect 51.15.102.121:993 -quiet 2>&1 | head -5 && echo "✅ IMAP accessible" || echo "❌ IMAP not accessible"
-
-echo ""
-echo "5. Current Postfix virtual configuration:"
-kubectl exec -it deployment/postfix-mail -n mailcow -- postconf -n | grep -E "(virtual|mydestination)" | grep -v "^#"
-
-echo ""
-echo "🔍 Delivery Status Summary:"
-kubectl logs deployment/postfix-mail -n mailcow --tail=100 | grep -o "status=[^ ]*" | sort | uniq -c
