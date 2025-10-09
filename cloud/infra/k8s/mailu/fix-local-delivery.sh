@@ -10,7 +10,8 @@ kubectl patch deployment postfix-mail -n mailcow -p '{
         "containers": [{
           "name": "postfix",
           "env": [
-            {"name": "POSTFIX_mydestination", "value": "localhost.localdomain, localhost, triggeriq.eu, mail.triggeriq.eu"},
+            {"name": "POSTFIX_mydestination", "value": "localhost.localdomain, localhost, mail.triggeriq.eu"},
+            {"name": "POSTFIX_myhostname", "value": "mail.triggeriq.eu"},
             {"name": "POSTFIX_local_recipient_maps", "value": ""},
             {"name": "POSTFIX_virtual_mailbox_domains", "value": "triggeriq.eu"},
             {"name": "POSTFIX_virtual_mailbox_base", "value": "/var/mail"},
@@ -39,5 +40,15 @@ kubectl rollout restart deployment/postfix-mail -n mailcow
 
 echo "4. Waiting for restart..."
 sleep 30
+
+echo "5. Verifying configuration..."
+kubectl exec -it deployment/postfix-mail -n mailcow -- sh -c '
+echo "=== Checking files ==="
+ls -la /etc/postfix/virtual_mailbox.pcre
+echo "=== Checking Postfix config ==="
+postconf mydestination
+postconf virtual_mailbox_domains
+postconf myhostname
+'
 
 echo "✅ Local delivery configuration updated for triggeriq.eu!"
