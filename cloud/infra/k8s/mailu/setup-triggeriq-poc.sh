@@ -7,6 +7,11 @@ SCW_TEM_PORT="2587"
 echo "🚀 Configuring Scaleway TEM Relay using IP: $SCW_TEM_IP:$SCW_TEM_PORT"
 echo "===================================================================="
 
+# Get credentials from user
+read -p "Enter TEM Username: " TEM_USER
+read -s -p "Enter API Key: " API_KEY
+echo ""
+
 kubectl -n $NAMESPACE exec -it $POD -- sh -c "
 echo '1. Testing TEM IP connectivity...'
 if timeout 5 bash -c '</dev/tcp/$SCW_TEM_IP/$SCW_TEM_PORT'; then
@@ -31,7 +36,7 @@ postconf -e 'smtp_tls_note_starttls_offer = yes'
 echo ''
 echo '3. Creating SASL configuration...'
 mkdir -p /etc/postfix/sasl/
-echo '[$SCW_TEM_IP]:$SCW_TEM_PORT \${SCW_PROJECT_ID}:\${SCW_SECRET_KEY}' > /etc/postfix/sasl/sasl_passwd
+echo '[$SCW_TEM_IP]:$SCW_TEM_PORT ${TEM_USER}:${API_KEY}' > /etc/postfix/sasl/sasl_passwd
 postmap /etc/postfix/sasl/sasl_passwd
 chmod 600 /etc/postfix/sasl/sasl_passwd /etc/postfix/sasl/sasl_passwd.lmdb
 

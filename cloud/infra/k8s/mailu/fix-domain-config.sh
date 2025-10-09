@@ -1,6 +1,6 @@
 #!/bin/bash
 NAMESPACE="mailcow"
-POD="postfix-mail-7db6646f7f-vhsfm"
+POD=$(kubectl get pods -n mailcow -l app=postfix-mail -o jsonpath='{.items[0].metadata.name}')
 
 echo "🔧 Fixing Domain Configuration for triggeriq.eu"
 echo "=============================================="

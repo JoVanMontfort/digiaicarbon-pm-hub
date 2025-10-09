@@ -81,7 +81,7 @@ echo "------------------------------"
 
 # Test local SMTP connection
 echo "🔌 Testing local SMTP (port 25):"
-kubectl exec -n mailcow $POSTFIPOSTFIX_POD -- timeout 10 bash -c "echo 'QUIT' | telnet localhost 25"
+kubectl exec -n mailcow $POSTFIX_POD -- timeout 10 bash -c "echo 'QUIT' | telnet localhost 25"
 if [ $? -eq 0 ]; then
     echo "✅ Local SMTP is accessible"
 else
@@ -148,7 +148,7 @@ echo "Relayhost: $RELAYHOST"
 echo ""
 echo "6. Testing Outbound Mail..."
 echo "--------------------------"
-
+EXTERNAL_TEST_EMAIL=jovm007me@gmail.com
 # Send test email to external address (if configured)
 if [ -n "$EXTERNAL_TEST_EMAIL" ]; then
     echo "📤 Sending external test to $EXTERNAL_TEST_EMAIL:"
@@ -165,7 +165,7 @@ This is an external test email from $DOMAIN.' | sendmail -v $EXTERNAL_TEST_EMAIL
         echo "❌ Failed to send external test email"
     fi
 else
-    echo "ℹ️ Set EXTERNAL_TEST_EMAIL environment variable to test external delivery"
+    echo "ℹ️  Set EXTERNAL_TEST_EMAIL environment variable to test external delivery"
 fi
 
 echo ""

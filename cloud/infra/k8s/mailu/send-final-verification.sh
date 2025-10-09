@@ -1,60 +1,56 @@
 #!/bin/bash
+
+echo "🧪 Testing Outgoing Mail via Scaleway Relay"
+echo "==========================================="
+
 NAMESPACE="mailcow"
-POD="postfix-mail-7db6646f7f-vhsfm"
+POSTFIX_POD=$(kubectl get pods -n mailcow -l app=postfix-mail -o jsonpath='{.items[0].metadata.name}')
+EXTERNAL_TEST_EMAIL="jovm007me@gmail.com"  # CHANGE THIS TO YOUR REAL EMAIL
 
-echo "🎯 FINAL COMPREHENSIVE TEST"
-echo "=========================="
+echo ""
+echo "1. Checking Current Relay Configuration..."
+echo "-----------------------------------------"
 
-kubectl -n $NAMESPACE exec -it $POD -- sh -c "
-echo '1. Current configuration summary:'
-echo 'Relay: ' && postconf relayhost
-echo 'SASL: ' && postconf smtp_sasl_auth_enable
-echo 'TLS: ' && postconf smtp_tls_security_level
+echo "🔍 Relay host:"
+kubectl exec -n $NAMESPACE $POSTFIX_POD -- postconf relayhost
 
-echo ''
-echo '2. Testing connectivity one more time...'
-timeout 5 bash -c '</dev/tcp/51.159.84.239/2587' && echo '✅ TEM connectivity: OK' || echo '❌ TEM connectivity: FAILED'
+echo ""
+echo "🔍 SASL configuration:"
+kubectl exec -n $NAMESPACE $POSTFIX_POD -- ls -la /etc/postfix/sasl/sasl_passwd 2>/dev/null && \
+kubectl exec -n $NAMESPACE $POSTFIX_POD -- cat /etc/postfix/sasl/sasl_passwd
 
-echo ''
-echo '3. Clear any residual queue...'
-postsuper -d ALL 2>/dev/null
+echo ""
+echo "2. Testing Outgoing to EXTERNAL Domain..."
+echo "----------------------------------------"
 
-echo ''
-echo '4. Send URGENT test email...'
-echo 'Subject: 🚨 URGENT: Kapsule Email Test - CHECK SPAM
+echo "📤 Sending test to EXTERNAL email: $EXTERNAL_TEST_EMAIL"
+kubectl exec -n $NAMESPACE $POSTFIX_POD -- bash -c "
+echo 'Subject: SCW Relay Test - External
 From: test@triggeriq.eu
-To: jovm007me@gmail.com
+To: $EXTERNAL_TEST_EMAIL
 
-URGENT TEST - PLEASE CHECK SPAM FOLDER IMMEDIATELY!
+This is a test email sent through Scaleway Transactional Email relay.
 
-Technical status:
-- Kapsule: ✅ Sending emails
-- TEM: ✅ Accepting connections
-- Authentication: ✅ Working
-- Queue: ✅ Empty after send
+If successful, you should receive this email.' | sendmail -v $EXTERNAL_TEST_EMAIL
+"
 
-If this doesnt arrive, check:
-1. Gmail Spam folder
-2. TEM domain verification
-3. TEM statistics in console
+echo ""
+echo "3. Checking Mail Queue..."
+echo "------------------------"
+sleep 2
+kubectl exec -n $NAMESPACE $POSTFIX_POD -- mailq
 
-THIS IS TECHNICAL SUCCESS!' | sendmail -t
+echo ""
+echo "4. Checking Postfix Logs..."
+echo "--------------------------"
+echo "📋 Recent log entries:"
+kubectl logs -n $NAMESPACE $POSTFIX_POD --tail=20 | grep -E "(relay|SCW|51.159.84.239|sent|deferred|reject)"
 
-echo ''
-echo '5. Real-time monitoring for 30 seconds...'
-for i in 1 2 3 4 5 6; do
-    sleep 5
-    echo \"--- $(date) - Check \$i/6 ---\"
-    echo 'Queue: ' && postqueue -p
-    echo 'Recent syslog:'
-    tail -10 /var/log/syslog 2>/dev/null | grep -i 'postfix' | tail -2 || echo 'No postfix logs'
-    echo ''
-done
-
-echo ''
-echo '6. FINAL STATUS:'
-echo '✅ Emails are being accepted and processed'
-echo '✅ Queue remains empty (GOOD sign)'
-echo '✅ No errors reported'
-echo '🎉 TECHNICAL SETUP IS WORKING!'
+echo ""
+echo "5. Testing Relay Connectivity..."
+echo "-------------------------------"
+kubectl exec -n $NAMESPACE $POSTFIX_POD -- sh -c "
+echo 'Testing connection to SCW TEM IP...'
+timeout 5 bash -c '</dev/tcp/51.159.84.239/2587' && echo '✅ Port 2587 reachable' || echo '❌ Port 2587 not reachable'
+timeout 5 bash -c '</dev/tcp/51.159.84.239/587' && echo '✅ Port 587 reachable' || echo '❌ Port 587 not reachable'
 "
