@@ -108,8 +108,40 @@ if [ -n "$latest" ]; then
 fi
 '
 
+echo "📧 Finding and Reading the ACTUAL Gmail Email"
+
+echo "5. Looking for the Gmail email from 12:06..."
+kubectl exec -it deployment/postfix-mail -n mailcow -- sh -c '
+echo "=== All support emails with timestamps ==="
+for file in /var/mail/support/new/*; do
+    if [ -f "$file" ]; then
+        echo "$(ls -l --time-style=+%H:%M:%S "$file" | cut -d" " -f6-8) $(basename "$file")"
+    fi
+done | sort -r | head -10
+
 echo ""
-echo "5. Real-time log monitoring for external attempts..."
+echo "=== Looking for the 12:06 Gmail email ==="
+gmail_file=$(ls -t /var/mail/support/new/ | grep -E "176001160" | head -1)
+if [ -n "$gmail_file" ]; then
+    echo "Found Gmail email: $gmail_file"
+    echo "=== FULL CONTENT ==="
+    cat "/var/mail/support/new/$gmail_file"
+else
+    echo "No Gmail email found from 12:06"
+    echo "=== Checking all files for Gmail headers ==="
+    for file in /var/mail/support/new/*; do
+        if grep -q "gmail.com" "$file" 2>/dev/null; then
+            echo "Gmail email found: $(basename "$file")"
+            echo "--- Headers ---"
+            head -30 "$file"
+            echo "==============="
+        fi
+    done
+fi
+'
+
+echo ""
+echo "6. Real-time log monitoring for external attempts..."
 echo "📧 NOW try sending from Gmail to support@triggeriq.eu and watch the logs:"
 kubectl logs -n mailcow deployment/postfix-mail --tail=10 --follow
 
