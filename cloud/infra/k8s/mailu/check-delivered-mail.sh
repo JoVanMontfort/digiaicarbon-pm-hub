@@ -45,7 +45,7 @@ echo "You can now test sending from Gmail to: support@triggeriq.eu"
 
 echo "📧 Reading Support Mailbox Content"
 
-echo "1. Checking all emails in support mailbox..."
+echo "7. Checking all emails in support mailbox..."
 kubectl exec -it deployment/postfix-mail -n mailcow -- sh -c '
 echo "=== All support emails ==="
 ls -lt /var/mail/support/new/ | head -10
@@ -62,7 +62,7 @@ fi
 '
 
 echo ""
-echo "2. Checking if any external emails arrived..."
+echo "8. Checking if any external emails arrived..."
 kubectl exec -it deployment/postfix-mail -n mailcow -- sh -c '
 echo "=== Checking for external emails in support ==="
 for file in /var/mail/support/new/*; do
@@ -135,6 +135,57 @@ else
             echo "--- Headers ---"
             head -30 "$file"
             echo "==============="
+        fi
+    done
+fi
+'
+
+echo "6. Looking for Latest Gmail Received Mail..."
+kubectl exec -it deployment/postfix-mail -n mailcow -- sh -c '
+echo "=== All support emails sorted by timestamp ==="
+ls -lt /var/mail/support/new/ 2>/dev/null | head -10
+
+echo ""
+echo "=== Looking for Gmail emails (any time) ==="
+# Find files containing gmail.com
+find /var/mail/support/new/ -type f -exec grep -l "gmail.com" {} \; 2>/dev/null > /tmp/gmail_files.txt
+
+if [ -s /tmp/gmail_files.txt ]; then
+    echo "Found Gmail emails:"
+    while IFS= read -r file; do
+        if [ -f "$file" ]; then
+            filename=$(basename "$file")
+            timestamp=$(ls -l --time-style=+%Y-%m-%d_%H:%M:%S "$file" | awk "{print \$6}")
+            echo ""
+            echo "📧 Gmail Email: $filename (Received: $timestamp)"
+            echo "--- From/Subject ---"
+            grep -E "^(From:|Subject:)" "$file" | head -2
+            echo "--- Preview ---"
+            grep -A 5 "^$" "$file" | tail -5 | sed "/^$/d"
+            echo "==============="
+        fi
+    done < /tmp/gmail_files.txt
+
+    echo ""
+    echo "=== Full content of latest Gmail email ==="
+    latest_gmail=$(find /var/mail/support/new/ -type f -exec grep -l "gmail.com" {} \; 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
+    if [ -n "$latest_gmail" ] && [ -f "$latest_gmail" ]; then
+        echo "Latest Gmail file: $(basename "$latest_gmail")"
+        cat "$latest_gmail"
+    fi
+    rm -f /tmp/gmail_files.txt
+else
+    echo "❌ No Gmail emails found in support mailbox"
+    echo ""
+    echo "=== Checking all mailboxes for Gmail emails ==="
+    for mailbox in test admin info support; do
+        count=$(find /var/mail/$mailbox/new/ -type f -exec grep -l "gmail.com" {} \; 2>/dev/null | wc -l)
+        if [ $count -gt 0 ]; then
+            echo "✅ ${mailbox}@triggeriq.eu: $count Gmail emails"
+            latest=$(find /var/mail/$mailbox/new/ -type f -exec grep -l "gmail.com" {} \; 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
+            echo "   Latest: $(basename "$latest")"
+        else
+            echo "❌ ${mailbox}@triggeriq.eu: 0 Gmail emails"
         fi
     done
 fi
