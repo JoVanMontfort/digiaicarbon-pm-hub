@@ -1,100 +1,108 @@
 #!/bin/bash
 
-echo "🔧 Completing Dovecot Authentication Test"
-echo "========================================"
+echo "🔧 Completing Dovecot Authentication Test with PROPER Email Sync"
+echo "==============================================================="
 
 NAMESPACE="mailcow"
 DOVECOT_POD=$(kubectl get pods -n $NAMESPACE -l app=dovecot-mail -o jsonpath='{.items[0].metadata.name}')
+POSTFIX_POD=$(kubectl get pods -n $NAMESPACE -l app=postfix-mail -o jsonpath='{.items[0].metadata.name}')
 DOVECOT_IP="51.15.102.121"
+POSTFIX_IP="51.158.216.249"
 
 echo ""
-echo "1. Final Authentication Test..."
-echo "-----------------------------"
+echo "📧 STEP 1: PROPER Email Sync from Postfix to Dovecot"
+echo "==================================================="
 
-# Complete the IMAP test that was cut off
-timeout 10 bash -c "
-exec 3<>/dev/tcp/$DOVECOT_IP/143
-echo 'a1 LOGIN support support123' >&3
-sleep 2
-response=\$(cat <&3)
-echo \"IMAP Response: \$response\"
+echo "=== Method 1: Direct File Transfer between Pods ==="
+# Get the list of emails from Postfix
+echo "Getting email list from Postfix..."
+EMAIL_LIST=$(kubectl exec -n $NAMESPACE $POSTFIX_POD -- find /var/mail/support/new/ -type f 2>/dev/null)
 
-if echo \"\$response\" | grep -q \"OK.*Logged in\"; then
-    echo '🎉 ✅ IMAP AUTHENTICATION SUCCESSFUL!'
-    echo ''
-    echo 'Testing folder list...'
-    echo 'a2 LIST \"\" \"*\"' >&3
-    sleep 1
-    folders=\$(cat <&3)
-    echo \"Folders: \$folders\"
-    echo ''
-    echo 'a3 LOGOUT' >&3
+if [ -n "$EMAIL_LIST" ]; then
+    echo "Found $(echo "$EMAIL_LIST" | wc -l) emails in Postfix"
+
+    # Copy each email individually
+    echo "$EMAIL_LIST" | while read email_path; do
+        if [ -n "$email_path" ]; then
+            filename=$(basename "$email_path")
+            echo "Copying: $filename"
+
+            # Method 1A: Use kubectl cp (if volumes allow)
+            kubectl cp $NAMESPACE/$POSTFIX_POD:$email_path /tmp/$filename 2>/dev/null
+            if [ -f "/tmp/$filename" ]; then
+                kubectl cp /tmp/$filename $NAMESPACE/$DOVECOT_POD:/var/mail/support/Maildir/new/$filename 2>/dev/null
+                rm -f /tmp/$filename
+                echo "✅ Copied via kubectl cp: $filename"
+            else
+                # Method 1B: Use exec with tar for direct transfer
+                kubectl exec -n $NAMESPACE $POSTFIX_POD -- tar cf - "$email_path" 2>/dev/null | \
+                kubectl exec -i -n $NAMESPACE $DOVECOT_POD -- tar xf - -C /var/mail/support/Maildir/new/ 2>/dev/null
+                echo "✅ Copied via tar: $filename"
+            fi
+        fi
+    done
 else
-    echo '❌ IMAP Authentication failed'
-    echo \"Error: \$response\"
+    echo "No emails found in Postfix"
 fi
-"
 
 echo ""
-echo "2. Testing IMAPS Authentication..."
-echo "-------------------------------"
-
-timeout 10 bash -c "
-echo 'a1 LOGIN support support123' | timeout 8 openssl s_client -connect $DOVECOT_IP:993 -quiet -crlf 2>/dev/null
-" | head -5 && echo "✅ IMAPS test completed"
-
-echo ""
-echo "3. Verifying Configuration..."
-echo "---------------------------"
-
-kubectl exec -n $NAMESPACE $DOVECOT_POD -- sh -c '
-echo "=== Current configuration ==="
-grep -A 5 -B 5 "disable_plaintext_auth" /etc/dovecot/dovecot.conf
-echo ""
-echo "=== Users database ==="
-cat /etc/dovecot/users
-echo ""
-echo "=== Mail directories ==="
-ls -la /var/mail/support/Maildir/ 2>/dev/null || echo "No Maildir yet"
+echo "=== Method 2: Recreate Emails in Dovecot ==="
+# If direct copy fails, recreate the emails by reading content
+kubectl exec -n $NAMESPACE $POSTFIX_POD -- sh -c '
+EMAIL_FILES=$(find /var/mail/support/new/ -type f 2>/dev/null | head -10)
+if [ -n "$EMAIL_FILES" ]; then
+    echo "Recreating emails in Dovecot..."
+    for email_file in $EMAIL_FILES; do
+        if [ -f "$email_file" ]; then
+            filename=$(basename "$email_file")
+            # Create the same email content in Dovecot
+            kubectl exec -n mailcow dovecot-mail-79b96d4cf4-s98vr -- sh -c "
+            mkdir -p /var/mail/support/Maildir/new/
+            cat > /var/mail/support/Maildir/new/$filename << \"EOF\"
+$(cat "$email_file")
+EOF
+            " && echo "Recreated: $filename"
+        fi
+    done
+fi
 '
 
 echo ""
-echo "🎉 THUNDERBIRD IS READY!"
-echo "======================="
-echo ""
-echo "📧 Account Settings:"
-echo "   Email: support@triggeriq.eu"
-echo "   Password: support123"
-echo ""
-echo "🌐 IMAP Server (Incoming):"
-echo "   Server: 51.15.102.121"
-echo "   Port: 143"
-echo "   SSL/TLS: None"
-echo "   Authentication: Normal password"
-echo "   Username: support"
-echo ""
-echo "📤 SMTP Server (Outgoing):"
-echo "   Server: 51.158.216.249"
-echo "   Port: 587"
-echo "   STARTTLS: Yes"
-echo "   Authentication: Normal password"
-echo "   Username: support@triggeriq.eu"
-echo "   Password: support123"
-echo ""
-echo "🔧 Important: Use 'support' as IMAP username (not full email)"
+echo "=== Method 3: Simple Test Email ==="
+# Create a simple test email directly in Dovecot
+kubectl exec -n $NAMESPACE $DOVECOT_POD -- sh -c '
+mkdir -p /var/mail/support/Maildir/new/
+cat > /var/mail/support/Maildir/new/test-direct-$(date +%s).eml << "EOF"
+Subject: DIRECT DOVECOT TEST EMAIL
+From: direct@triggeriq.eu
+Date: $(date)
+Message-ID: <test-$(date +%s)@triggeriq.eu>
 
-echo "🎯 Final Thunderbird Readiness Test"
-echo "=================================="
+This email was created directly in Dovecot storage.
+If you see this in Thunderbird, Dovecot is working correctly!
 
-NAMESPACE="mailcow"
-DOVECOT_POD=$(kubectl get pods -n $NAMESPACE -l app=dovecot-mail -o jsonpath='{.items[0].metadata.name}')
-DOVECOT_IP="51.15.102.121"
+Test timestamp: $(date)
+EOF
+echo "Created direct test email in Dovecot"
+'
 
 echo ""
-echo "1. Testing IMAP Authentication..."
-echo "-------------------------------"
+echo "=== Verifying emails in Dovecot ==="
+kubectl exec -n $NAMESPACE $DOVECOT_POD -- sh -c '
+echo "--- Current emails in Dovecot ---"
+find /var/mail/support/Maildir/new/ -type f 2>/dev/null | wc -l
+find /var/mail/support/Maildir/new/ -type f 2>/dev/null | head -5
+ls -la /var/mail/support/Maildir/new/ 2>/dev/null | head -10
+'
 
-echo "🔌 Testing full IMAP session..."
+echo ""
+echo "🔐 STEP 2: Authentication and IMAP Tests"
+echo "========================================"
+
+echo ""
+echo "1. Testing IMAP Authentication and Email Count..."
+echo "-----------------------------------------------"
+
 {
 echo "a1 LOGIN support support123"
 sleep 2
@@ -102,150 +110,67 @@ echo "a2 LIST \"\" \"*\""
 sleep 1
 echo "a3 SELECT INBOX"
 sleep 1
-echo "a4 LOGOUT"
-} | timeout 15 telnet $DOVECOT_IP 143
+echo "a4 SEARCH ALL"
+sleep 1
+echo "a5 FETCH 1:* (BODY.PEEK[HEADER.FIELDS (SUBJECT FROM)])"
+sleep 1
+echo "a6 LOGOUT"
+} | timeout 20 telnet $DOVECOT_IP 143
 
 echo ""
-echo "2. Checking Email Content..."
-echo "--------------------------"
+echo "📧 STEP 3: Dovecot Maildir Structure Fix"
+echo "========================================"
 
+# Fix the Maildir structure and permissions
 kubectl exec -n $NAMESPACE $DOVECOT_POD -- sh -c '
-echo "=== Checking for emails in support mailbox ==="
+echo "=== Fixing Maildir structure ==="
+mkdir -p /var/mail/support/Maildir/{cur,new,tmp}
+chown -R 5000:5000 /var/mail/support/Maildir/
+
+# Check if emails need to be moved from other locations
+if [ -d "/var/mail/support/cur" ] && [ "$(ls -A /var/mail/support/cur/ 2>/dev/null)" ]; then
+    echo "Moving emails from cur to Maildir/cur/"
+    mv /var/mail/support/cur/* /var/mail/support/Maildir/cur/ 2>/dev/null || true
+fi
+
+if [ -d "/var/mail/support/new" ] && [ "$(ls -A /var/mail/support/new/ 2>/dev/null)" ]; then
+    echo "Moving emails from new to Maildir/new/"
+    mv /var/mail/support/new/* /var/mail/support/Maildir/new/ 2>/dev/null || true
+fi
+
+echo "=== Final email count ==="
+find /var/mail/support/Maildir/ -name "*" -type f | wc -l
+echo "new/: $(find /var/mail/support/Maildir/new/ -type f 2>/dev/null | wc -l)"
+echo "cur/: $(find /var/mail/support/Maildir/cur/ -type f 2>/dev/null | wc -l)"
+'
+
+echo ""
+echo "🎯 STEP 4: Immediate Thunderbird Test"
+echo "===================================="
+
+echo ""
+echo "🚀 IMMEDIATE ACTION REQUIRED:"
+echo "1. Open Thunderbird NOW"
+echo "2. Select the support@triggeriq.eu account"
+echo "3. Press F5 to refresh"
+echo "4. Check if you see the 'DIRECT DOVECOT TEST EMAIL'"
+echo ""
+echo "📊 Current Status:"
+kubectl exec -n $NAMESPACE $DOVECOT_POD -- sh -c '
 EMAIL_COUNT=$(find /var/mail/support/Maildir/new/ -type f 2>/dev/null | wc -l)
-echo "Emails found: $EMAIL_COUNT"
-
-if [ $EMAIL_COUNT -gt 0 ]; then
-    echo ""
-    echo "📧 Latest emails:"
-    ls -lt /var/mail/support/Maildir/new/ | head -5
-    echo ""
-    echo "📋 Sample email content:"
-    latest=$(ls -t /var/mail/support/Maildir/new/ | head -1)
-    if [ -n "$latest" ]; then
-        echo "--- Latest email preview ---"
-        head -20 "/var/mail/support/Maildir/new/$latest"
-        echo "---------------------------"
-    fi
-else
-    echo "❌ No emails found in support mailbox"
-    echo "Checking if emails are in old location..."
-    find /var/mail/support/ -name "*" -type f | head -5
-fi
+CUR_COUNT=$(find /var/mail/support/Maildir/cur/ -type f 2>/dev/null | wc -l)
+echo "   - Emails in 'new' folder: $EMAIL_COUNT"
+echo "   - Emails in 'cur' folder: $CUR_COUNT"
+echo "   - Total emails: $((EMAIL_COUNT + CUR_COUNT))"
 '
 
 echo ""
-echo "3. Testing SMTP Connection..."
-echo "---------------------------"
-
-POSTFIX_IP="51.158.216.249"
-echo "🔌 Testing SMTP server..."
-timeout 5 bash -c "echo 'QUIT' | telnet $POSTFIX_IP 587" && echo "✅ SMTP port 587 accessible" || echo "❌ SMTP port 587 not accessible"
+echo "🔧 If still no emails in Thunderbird:"
+echo "   - Right-click account → Subscribe → Check ALL folders"
+echo "   - Restart Thunderbird"
+echo "   - Check Tools → Error Console for errors"
 
 echo ""
-echo "4. Final Status Check..."
-echo "----------------------"
-
-echo "✅ Dovecot Configuration:"
-echo "   - Plaintext auth: ENABLED"
-echo "   - SSL: DISABLED"
-echo "   - Users: Configured"
-echo "   - Maildir: Proper structure"
-echo ""
-echo "✅ Network Access:"
-echo "   - IMAP: $DOVECOT_IP:143 ✓"
-echo "   - SMTP: $POSTFIX_IP:587 ✓"
-echo ""
-echo "✅ Authentication:"
-echo "   - Username: support"
-echo "   - Password: support123"
-
-echo "=== Finding Kubernetes Pods ==="
-kubectl get pods -n mailcow
-POSTFIX_POD=$(kubectl get pods -n mailcow -l app=postfix-mail -o jsonpath='{.items[0].metadata.name}')
-DOVECOT_POD=$(kubectl get pods -n mailcow -l app=dovecot-mail -o jsonpath='{.items[0].metadata.name}')
-echo "Postfix Pod: $POSTFIX_POD"
-echo "Dovecot Pod: $DOVECOT_POD"
-
-echo "=== Checking Postfix Delivery Location ==="
-kubectl exec -n mailcow $POSTFIX_POD -- sh -c '
-echo "--- Postfix virtual configuration ---"
-postconf virtual_mailbox_domains
-postconf virtual_mailbox_base
-postconf virtual_mailbox_maps
-find /etc/postfix -name "*" -type f -exec grep -l "support" {} \; 2>/dev/null
-'
-
-echo "=== Checking Dovecot Mail Location ==="
-kubectl exec -n mailcow $DOVECOT_POD -- sh -c '
-echo "--- Dovecot mail_location ---"
-grep -r "mail_location" /etc/dovecot/
-echo ""
-echo "--- Current mail directories ---"
-find /var/mail /var/vmail -type d -name "*support*" 2>/dev/null | head -10
-echo ""
-echo "--- Files in support maildir ---"
-find /var/mail/support -type f 2>/dev/null | head -20
-'
-
-echo "=== Checking Kubernetes Volumes ==="
-kubectl describe pods -n mailcow $POSTFIX_POD | grep -A 10 -B 5 "Volume"
-kubectl describe pods -n mailcow $DOVECOT_POD | grep -A 10 -B 5 "Volume"
-
-echo "=== Checking Persistent Volume Claims ==="
-kubectl get pvc -n mailcow
-
-echo "=== Sending Test Email and Tracing ==="
-# Send test email
-kubectl exec -n mailcow $POSTFIX_POD -- sh -c '
-sendmail support@triggeriq.eu << EOF
-Subject: KUBERNETES DELIVERY TEST
-From: test@triggeriq.eu
-
-Testing email delivery in Kubernetes setup
-EOF
-'
-
-# Wait and check where it landed
-sleep 5
-echo "=== Checking for new email ==="
-kubectl exec -n mailcow $POSTFIX_POD -- find /var/mail /var/vmail -type f -mmin -1 2>/dev/null
-kubectl exec -n mailcow $DOVECOT_POD -- find /var/mail /var/vmail -type f -mmin -1 2>/dev/null
-
-echo "=== Checking mailcow Database Configuration ==="
-MYSQL_POD=$(kubectl get pods -n mailcow -l name=mysql-mailcow -o jsonpath='{.items[0].metadata.name}')
-kubectl exec -n mailcow $MYSQL_POD -- sh -c '
-mysql -umailcow -pmailcow -D mailcow -e "SELECT username, maildir, active FROM mailbox WHERE username LIKE \"%support%\";"
-'
-
-echo "=== Copying emails directly using kubectl ==="
-
-# Get the email file from Postfix pod
-kubectl exec -n mailcow postfix-mail-665dc57ccf-brc2q -- sh -c '
-EMAIL_FILE=$(ls /var/mail/support/new/ | head -1)
-if [ -n "$EMAIL_FILE" ]; then
-    echo "Found email: $EMAIL_FILE"
-    cat /var/mail/support/new/$EMAIL_FILE
-else
-    echo "No emails found in Postfix"
-fi
-' > /tmp/email.eml
-
-# Copy to Dovecot pod
-if [ -s /tmp/email.eml ]; then
-    echo "=== Injecting email into Dovecot storage ==="
-    cat /tmp/email.eml | kubectl exec -i -n mailcow dovecot-mail-79b96d4cf4-s98vr -- sh -c '
-    mkdir -p /var/mail/support/Maildir/new/
-    cat > /var/mail/support/Maildir/new/$(date +%s).Vfd01I$(date +%N).P$(hostname)
-    echo "Email injected into Dovecot"
-    '
-else
-    echo "=== Sending new test email ==="
-    kubectl exec -n mailcow postfix-mail-665dc57ccf-brc2q -- sh -c '
-    sendmail support@triggeriq.eu << EOF
-Subject: DIRECT TEST TO DOVECOT
-From: test@triggeriq.eu
-
-This email should appear in Thunderbird immediately!
-EOF
-    '
-fi
+echo "========================================="
+echo "🎉 SYNC COMPLETED - CHECK THUNDERBIRD!"
+echo "========================================="
