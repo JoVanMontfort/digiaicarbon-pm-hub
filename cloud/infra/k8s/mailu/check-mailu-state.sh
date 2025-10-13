@@ -5,6 +5,47 @@ echo "==========================="
 
 NAMESPACE="mailcow"  # This is actually Mailu!
 
+echo "🔍 Checking Postfix Pod Status"
+echo "=============================="
+
+NAMESPACE="mailcow"
+
+echo ""
+echo "1. Checking Postfix Pod..."
+echo "-------------------------"
+kubectl get pods -n $NAMESPACE | grep postfix
+
+echo ""
+echo "2. Detailed Postfix Pod Status..."
+echo "-------------------------------"
+kubectl describe pod -n $NAMESPACE -l app=postfix-mail
+
+echo ""
+echo "3. Checking Postfix Processes..."
+echo "------------------------------"
+POSTFIX_POD=$(kubectl get pods -n $NAMESPACE -l app=postfix-mail -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+
+if [ -n "$POSTFIX_POD" ]; then
+    echo "Postfix pod: $POSTFIX_POD"
+    kubectl exec -n $NAMESPACE $POSTFIX_POD -- ps aux | grep postfix
+else
+    echo "❌ No Postfix pod found"
+fi
+
+echo ""
+echo "4. Checking Postfix Service..."
+echo "----------------------------"
+kubectl get svc -n $NAMESPACE | grep postfix
+
+echo ""
+echo "5. Checking Postfix Logs..."
+echo "-------------------------"
+if [ -n "$POSTFIX_POD" ]; then
+    kubectl logs -n $NAMESPACE $POSTFIX_POD --tail=5
+else
+    echo "Cannot check logs - no Postfix pod found"
+fi
+
 echo "🚫 Port-forwarding disabled - no browser available in SCW Kapsule"
 echo "================================================================"
 
