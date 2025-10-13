@@ -15,12 +15,17 @@ spec:
     spec:
       containers:
         - name: appflowy
-          image: appflowy/appflowy:latest  # or your preferred version
+          image: appflowy/appflowy:latest
           env:
             - name: DATABASE_URL
-              value: "sqlite:///data/appflowy/appflowy.db"
+              valueFrom:
+                secretKeyRef:
+                  name: appflowy-secret
+                  key: database-url
             - name: RUST_LOG
               value: "info"
+            - name: PORT
+              value: "80"
           ports:
             - containerPort: 80
           volumeMounts:
@@ -33,6 +38,18 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: appflowy-data
           persistentVolumeClaim:

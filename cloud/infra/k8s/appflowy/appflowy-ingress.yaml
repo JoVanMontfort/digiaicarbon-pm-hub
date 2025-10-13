@@ -5,10 +5,13 @@ metadata:
   namespace: appflowy
   annotations:
     kubernetes.io/ingress.class: nginx
-    cert-manager.io/cluster-issuer: letsencrypt-prod  # If using cert-manager
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # Temporary: Disable SSL redirect for ACME challenge
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
 spec:
   rules:
-    - host: appflowy.triggeriq.eu  # Subdomain
+    - host: appflowy.triggeriq.eu
       http:
         paths:
           - path: /
