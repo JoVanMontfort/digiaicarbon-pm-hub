@@ -9,4 +9,4 @@ spec:
   resources:
     requests:
       storage: 4Gi  # SQLite databases are small, 10GB is plenty
-  storageClassName: standard  # Adjust based on your cluster
+  storageClassName: scw-bssd  # Adjust based on your cluster

@@ -13,9 +13,11 @@ spec:
       labels:
         app: appflowy
     spec:
+      imagePullSecrets:
+        - name: ghcr-secret
       containers:
         - name: appflowy
-          image: appflowy/appflowy:latest
+          image: ghcr.io/appflowy-io/appflowy:latest
           env:
             - name: DATABASE_URL
               valueFrom:
