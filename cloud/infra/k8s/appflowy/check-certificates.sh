@@ -1,4 +1,5 @@
 #!/bin/bash
+
 echo "=== Certificates ==="
 kubectl get certificate -n appflowy
 echo -e "\n=== Orders ==="

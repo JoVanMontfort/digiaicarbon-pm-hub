@@ -17,7 +17,7 @@ spec:
         - name: ghcr-secret
       containers:
         - name: appflowy
-          image: ghcr.io/appflowy-io/appflowy:latest
+          image: ghcr.io/jovanmontfort/appflowy-web:latest  # ← CHANGED TO YOUR IMAGE
           env:
             - name: DATABASE_URL
               valueFrom:
